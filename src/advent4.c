@@ -48,18 +48,22 @@ int main(void)
             char line[64];
             char entrystr[64];
             int Y, M, D, h, m;
+            /* get entry from file */
             fgets(line, sizeof(line), input);
+            /* this isn't needed anymore, but since it's already here, keep it and just parse the bad way */
             line[0] = ' ';
             line[5] = ' ';
             line[8] = ' ';
             line[14] = ' ';
             line[17] = ' ';
+            /* parse components */
             if ((result = sscanf(line, " %d %d %d %d %d %[^\n]\n", &Y, &M, &D, &h, &m, entrystr)) == 6)
             {
                 int id;
                 /* construct datecode */
                 uint64_t datecode = ((((uint64_t)Y * 100 + M) * 100 + D) * 100 + h) * 100 + m;
                 entries[index].datecode = datecode;
+                /* try to pull out ID for start entry */
                 if (sscanf(entrystr, "Guard #%i begins shift", &id) == 1)
                 {
                     /* found id */
@@ -80,25 +84,25 @@ int main(void)
             }
         }
 
-        /* done with parse */
+        /* done with parse, sort it */
         qsort(entries,index,sizeof(entry),sorter);
 
-        uint32_t guard = 0;
-        uint64_t date = 0;
-        int32_t snoozing = -1;
-        uint32_t winner = 0;
-        uint32_t winnermins = 0;
-        uint32_t maxsleeper = 0, maxsleep = 0;
+        uint32_t guard = 0; // active guard
+        uint64_t date = 0; // not used
+        int32_t snoozing = -1; // start time of sleep
+        uint32_t winner = 0; // guard that currently holds the title for most minutes slept
+        uint32_t winnermins = 0; // number of minutes he has slept
+        uint32_t maxsleeper = 0, maxsleep = 0; // this is extra diagnostic
         for (int i  = 0; i < index; i++)
         {
             /* shift started, log the next day */
             if (entries[i].action == start_shift)
             {
                 guard = entries[i].id;
-                guards[guard][61]++;
+                guards[guard][61]++; // total times we've seen him on shift
                 /* date of shift may be tomorrow if we're in the 23rd hour. FIXME: broken logic with month wrapping */
                 date = entries[i].datecode / (100*100) + (((entries[i].datecode / 100) % 100 == 0) ? 0 : 1);
-                if (guards[guard][61] > maxsleep)
+                if (guards[guard][61] > maxsleep) // this is diagnostics here
                 {
                     maxsleep = guards[guard][61];
                     maxsleeper = guard;
@@ -110,7 +114,11 @@ int main(void)
 //                {
 //                    printf("date mismatch!\n");
 //                }
-                if ((snoozing < 0))
+                if (snoozing >= 0)
+                {
+                    printf("sleep when sleep\n");
+                }
+                if ((snoozing < 0)) // this was a check to make sure he doesn't fall asleep again
                 {
                     snoozing = entries[i].datecode % 100;
                 }
@@ -121,7 +129,11 @@ int main(void)
 //                {
 //                    printf("date mismatch!\n");
 //                }
-                if (snoozing > 0)
+                if (snoozing < 0)
+                {
+                    printf("wake when wake\n");
+                }
+                if (snoozing >= 0)
                 {
                     uint32_t waketime = entries[i].datecode % 100;
                     for (int j = snoozing; j < waketime; j++)
